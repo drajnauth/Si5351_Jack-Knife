@@ -1,0 +1,230 @@
+VE3OOI Si5351 Controller Arduino Program
+
+
+This document describes the Si5351 controller program written by Dave Rajnuth, VE3OOI.
+
+The controller program is an experimentation and demonstration program to learn about the Si5351 Adafruit Module.  The program uses a custom written set of Si5351 routines as part of the distribution. These routines are well documented such that anyone wishing to experiment with developing code for the Si5351 will understand its operation.
+
+Program Features
+
+1) Set frequency on each clock output from 8KHz to 160 MHz.  Note at higher frequencies you do get substantial interference between clocks!
+2) Ability to sweep between two frequencies in any increment with a programmable delay
+3) Calibrate the Si5351 module compensate for the Crystal Oscillator frequency 
+4) Change the output drive current (impacts output impedance) on the fly. Note the output impedance is 50R for 8mA current drive.  Anything lower, causes the output impedance to increase substantially.
+5) Change the Phase of any of the clock outputs on the fly
+6) Invert any output frequency on the fly (e.g. for PSK). Note inverting a square wave is the same as a 180 degree phase shift.
+7) Use a shared PLL to configure outputs (e.g. to see Phase shifts on a scope)
+8) Use dedicated PLLs for output clocks
+9) Auto select the PLL frequency or specific your own PLL frequency when configuring a frequency
+10) Generate a PSK idle code by inverting square wave (i.e. 180 deg phase shift)
+
+With this controller program, at minimum, you have a versatile signal generator at your disposal or a tool to experiment with the Si5351 to understand its capabilities and programming.
+
+
+Requirements:
+
+1. The Arduino must be connected to the Si5351 and working!  The Adafruit website details how to do this.
+
+2. Your Arduino must be configured in the Arduino IDE.  For example, you should be able to load, compile and run the blink.ino sketch which is located within the examples (basics).
+
+3. You must know how to load a sketch (program) into the Arduino.  There are numerous videos and documentation how to do this.
+
+4. The Arduino MUST have EEPROM memory. Majority of Arduino have EEPROM and you should be ok.  If you get a EEPROM error message when loading the software, this means you have an arduino without EEPROM memory.  You can verify if you Adruino has EEPROM by looking at the spec sheet for your Arduino on the Arduino website.
+
+It is possible to compile on a Arduino WITHOUT EEPROM memory.  You will need to remove the calls to read/write eeprom and hard code correction/calibration values into the program.
+
+5. The program needs  to 14,886 bytes of program storage space and 1,559 bytes for variables.  Make sure you Arduino has suffient memory.  Again You can verify this by looking at the spec sheet for your Arduino on the Arduino website.
+
+6. This program using a TTY (Serial Interface) where DOS/UNIX style commands are entered to configure the Si5351. The Serial Monitor tool that is part of the Arduino IDE can be used.  You can use any other serial TTY  program such as HyperTerm.  The requirements are:
+i) 9600 Baud
+ii) The Carrage Return and Line Feed (CR/LF) is enabled. The program needs to detect when you press the Enter key by looking for CR/LF.
+iii) Your TTY program is connected to the COM port associated with the Arduino
+
+
+Installation:
+
+1. Unzip the files within the "VE3OOI_Si5351_Controller_v1.3.zip" to a directory of the
+same name.  The files MUST be stored in a directory named "VE3OOI_Si5351_Controller_v1.3" otherwise the program will not load or compile.
+
+2.  There are no other libraries required other than the default Arduino libraries. 
+
+3. Press the upload button.
+
+Usage:
+
+Once you have a serial connection to the Arduino you should see the banner “VE3OOI Si5351 Controller v1.3” followed by a “RDY>” prompt. If you don't see this prompt then you are connected to the wrong COM port or have the incorrect baud rate defined.
+
+When you press Enter, you should see “Err” displayed meaning an unrecognized command was entered.
+
+All commands are single alphabetic characters following by one or more numbers. Commands are case insensitive. That is, “A” is the same as “a”. It does not matter which you type.
+
+There is a help screen that shows all available commands with usage information.  Press “h” followed by Enter. The following should be displayed:
+RDY> h
+C - Disp Calib
+	E.g. C
+C [CAL] [HZ] - Set Calib for HZ on all Channels
+	E.g. C 100 10000000 
+D [C] [HZ] [PLL] [PLLFreq] [deg] [mA] - Set Freq on CLK C using PLL with phase deg and drive mA
+	E.g. D 0 7000000 B 650000002 45 8
+F [C] [HZ] - Set Freq CLK C
+	E.g. F 0 10000000
+I [C] [E] - Invert clock (180 phase shift). E=1 invert, E=0 return
+	E.g. E 2 1
+L [C] [mA] - Set load mA for C
+	E.g. L 0 6
+P [C] [deg] - Set phase in degrees C
+	E.g. P 0 88
+S [S] [E] [I] [delay]- Sweep Start to End with Increment with delay ms on all Channels
+	E.g. S 7000000 73000000 100
+T [F] [C] - Generate test PSK at Freq F for duation C (Cx64 ms)
+	E.g. P 16 99 (99x64ms duration)
+R - Reset
+
+RDY> 
+
+Summary of commands are:
+
+“R” is used to reset the Si5351 module. It zeros all variables and reset all Si5351 registers. It disables output clocks and powers them down.  
+
+“C” is used to see or change the calibration value that is stored in the Arduino EEPROM. Entering C without any other arguments will show the current calibration.  A sample output is below:
+RDY> c
+Correction: 111
+
+RDY> 
+
+If you want to define a calibration value, you enter “C” followed by the calibration number and a frequency. The frequency is used to measure and calibrate. The example below set the calibration value to 111 and then outputs a frequency of 10 MHz on all clock outputs at 8mA drive (50R impedance).
+RDY> c 111 10000000
+Old Correction: 111
+New Correction: 111
+
+RDY>
+
+“F” is used to configure a quick and simple frequency output.  Majority of configuration parameters are selected for you.  PLLA is used for CLK0 and CLK1 and PLLB is used for CLK2, and the current drive output is set to 8mA.  The PLL frequency is automatically calculated for you.  The example below show how to configure CLK 2 for a frequency of 30 MHz and CLK0 for a frequency of 8.9 KHz. Simple! 
+RDY> f 2 30000000
+CLK2 Uses PLLB
+
+RDY> f 0 8900
+CLK0 & CLK1 Share PLLA
+
+RDY> 
+
+“S” is used to sweep frequencies. The program will configure the starting frequency and then after a specified delay, increment the frequency by the specified amount and continue doing this to the ending frequency.  The first and second arguments are the start and stop frequency, the third argument is the increment and the final argument is the delay in ms (milliseconds). The frequency is output on all clocks at 8mA drive. The output below is for a sweep between 7 MHz to 7.002 MHz with increment of 100 Hz and a pause (delay) of 100 ms
+RDY> s 7000000 7002000 100 100
+Ch 0 - Sweep Freq: 7000000 to: 7002000 Inc: 100
+7000000
+7000100
+7000200
+7000300
+7000400
+7000500
+7000600
+7000700
+7000800
+7000900
+7001000
+7001100
+7001200
+7001300
+7001400
+7001500
+7001600
+7001700
+7001800
+7001900
+7002000
+
+RDY>
+
+“D” is used to set the frequency using detailed information.  Use this command if you want to experiment with phase and other Si5351 capabilities. You must specify the CLK (i.e. 0,1,2) and the frequency. If you don't specify anything else, PLLA is used and set to 900 MHz (max PLL frequency), the phase is set to 0 degrees and the output current is set to 8mA.  The example below shows the simply form of the comment.  It configures 30 MHz for clock 2 using defaults.
+RDY> d 2 30000000
+PLL missing. Assume A
+PLL Freq missing. Assume 900 MHz
+Drive missing. Assume 8mA
+
+RDY> 
+
+In the most complex form, you specify in order on the command line
+Clock Channel 0,1,2
+Clock output frequency
+PLL i.e. “A” or “B”
+PLL Frequency which must be between 600 MHz and 900 MHz
+Phase angle in degrees (i.e. 0-360). Not for each output frequency there is a max phase that is based on the PLL frequency.  There is a detailed explanation in the accompanying Si5351 routines
+Current drive level (2,4,6 or 8)
+The example below show configuration of CLK0 for 130 MHz using PLL B with a frequency of 610 MHz, phase 90 degrees and drive 6mA
+RDY> d 0 130000000 a 610000000 90 6
+
+RDY> 
+
+“L” is used to change the output drive current of a running clock output.  A clock must be configured and running.  Simply specify the clock and the drive as 2,4,6 or 8 mA.  The example below shows how to configure clock 0 to 2 mA
+RDY> l 0 2
+
+RDY>
+
+“I” is used to invert the running clock.  Specify the clock and either 1 to invert or 0 to not to invert (i.e. return to original state). In the example, below CLK 2 is inverted and then returned to original state.
+RDY> i 2 1
+
+RDY> i 2 0
+
+RDY> 
+
+“P” is used to display or change the phase or a running clock.  Since the phase has a maximum value which is determined by the largest value represented by the phase register (i.e. 127), the frequency of the running clock and the period of the PLL frequency associated with the clock, the maximum value is displayed when you enter the command.  If no arguments are provided, the maximum allowed angle for each clock is displayed.  The example below show the maximum angle for all three clocks in increasing order (i.e. CLK0, CLK1 and CLK2).
+RDY> p
+Max angles: 128,228,19
+
+RDY>
+
+The example above shows that the maximum angle for CLK0 is 128 degrees, CLK1 is 228 degrees and 19 degrees for CLK2.  Note if any of the clocks are not configured and running the maximum angle will be 0.  If arguments are provided, the first argument is the clock (0, 1 or 2) and the second argument is the phase in degrees.  The example below changes the phase of CLK1 to 180 degrees. 
+RDY> p 1 180
+
+RDY> 
+
+Note if 180 degrees exceeds the maximum allowed angle, then the maximum allowed angle will be used.
+
+Example: Display Phase Shift on Scope
+
+The example below allows you to see the phase difference between two clocks on a 2 channel scope. For this example, both clocks must share the same PLL.  We will use the “d” command to configure the Si5351 to generate 30 MHz signals on clock 0 and clock 2. When we adjust the phase of one of the clocks we can the difference when viewing both clocks on the scope.
+
+1. Connect scope's channel 1 to clock 0.
+2. Set the scope to trigger on channel 1.  
+3. Connect scope's channel 2 to clock 2.
+4. Reset the Si5351 by entering the “r” command or by powering it off and on.
+5. Enter the following commands to generate frequencies on clock 0 and clock 2.  Again both clocks MUST use the same PLL for this experiment to work.
+RDY> d 0 30000000
+PLL missing. Assume A
+PLL Freq missing. Assume 900 MHz
+Drive missing. Assume 8mA
+
+RDY> d 2 30000000
+PLL missing. Assume A
+PLL Freq missing. Assume 900 MHz
+Drive missing. Assume 8mA
+
+6. Setup your scope to show both traces.  Set the sweep frequency to show 2 or 3 cycles.
+7. Next, display the maximum allowed phase with the following command
+RDY> p
+Max angles: 381,0,381
+
+RDY> 
+
+8. Use the phase command to change the phase of clock 2 and then see the change on the scope. The entered phase angle must be less than or equal to the max angle displayed above.   To see the impact first use 180 degrees then switch back to 0.
+RDY> p 2 180
+
+RDY>
+
+9. Next, use the invert command to see the impact on the signal when its inverted. You will see a 180 degree phase shift.
+RDY> i 2 1
+
+RDY> i 2 0
+
+RDY> 
+
+
+Example 2: Listen to PSK Idle 
+
+The example below allows you to hear the phase shifts by generating PSK Idle.  For this example, you will tune your HF radio to a frequency say 7100000 Hz USB and generate a test PSK signal at 7101000 Hz.  Both need to be 1000 Hz apart so that you can hear a 1000 Hz tone from the radio.   
+1. Connect a insulated wire from your rigs antenna port to run near the Si5351 – DO NOT CONNECT ANTENNA DIRECTLY TO Si5351 
+2. Tune the radio to 7100000 and USB
+3. Enter the following command on the Arduino 
+RDY> t 7101000  20 
+
+

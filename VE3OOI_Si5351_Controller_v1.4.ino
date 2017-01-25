@@ -41,7 +41,7 @@ void setup() {
 
   // define the baud rate for TTY communications. Note CR and LF must be sent by  terminal program
   Serial.begin(9600);
-  Serial.println ("VE3OOI Si5351 Controller v1.3"); 
+  Serial.println ("VE3OOI Si5351 Controller v1.4"); 
   Serial.write ("\r\nRDY> ");
   Serial.flush();
   ResetSerial ();
@@ -240,6 +240,8 @@ void ExecuteSerial (char *str)
       Serial.println ("\tE.g. P 0 88");
       Serial.println ("S [S] [E] [I] [delay]- Sweep Start to End with Increment with delay ms on all Channels");
       Serial.println ("\tE.g. S 7000000 73000000 100");
+      Serial.println ("T [F] [C] - Generate test PSK at Freq F for duation C (Cx64 ms)");
+      Serial.println ("\tE.g. P 16 99 (99x64ms duration)");
       Serial.println ("R - Reset");
       break;
 
@@ -345,8 +347,34 @@ void ExecuteSerial (char *str)
       Serial.println (i);
       delay (numbers[3]);
      }
+     break;
+      
+    // This command sends psk signal as a test.  
+    case 'T':             // PSK Test
+      // Validate frequency
+      if (numbers[0] < SI_MIN_OUT_FREQ || numbers[1] > SI_MAX_OUT_FREQ) {
+        Serial.println ("Frequency out of range");
+        break;
+      }
+      if (numbers[1] > 100) {
+        Serial.println ("Bad Duration");
+        break;
+      } else if (!numbers[1]) {
+        numbers[1] = 30;
+      }
+
+      SetFrequency (SI_CLK0, SI_PLL_A, numbers[0], 8);
+
+      for (i=0; i<numbers[1]; i++) {
+//         UpdatePhase (SI_CLK0, numbers[1]);
+         InvertClk (SI_CLK0, 1);
+         delay (32);
+//         UpdatePhase (SI_CLK0, 0);
+         InvertClk (SI_CLK0, 0);
+         delay (32);
+      }
       break;
-     
+
     // If an undefined command is entered, display an error message
     default:
       ErrorOut ();
